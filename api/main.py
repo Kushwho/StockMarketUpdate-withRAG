@@ -60,7 +60,10 @@ async def chat(request: ChatRequest):
         session_id = request.session_id or "default"
         rag_system = get_session(session_id)
         
-        result = rag_system.chat(request.question)
+        # Check if agentic mode should be used
+        use_agents = os.getenv("AGENT_MODE_ENABLED", "true").lower() == "true"
+
+        result = rag_system.chat(session_id=session_id, question=request.question, use_agents=use_agents)
         return ChatResponse(
             answer=result["response"],
             sources=result.get("sources", []),

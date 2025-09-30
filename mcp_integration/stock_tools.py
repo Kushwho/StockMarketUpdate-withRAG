@@ -1,7 +1,7 @@
 """
 Simple stock tools for easy integration with RAG system
 """
-from alpha_vantage_client import AlphaVantageMCPClient
+from .alpha_vantage_client import AlphaVantageMCPClient
 from typing import Dict, Any, Optional
 
 class StockTools:
@@ -77,8 +77,15 @@ class StockTools:
         except Exception as e:
             return f"Error searching for '{keywords}': {str(e)}"
 
-# Test the tools
-if __name__ == "__main__":
+# Convenience function for easy import
+def get_current_price(symbol: str) -> str:
+    """Standalone function to get current stock price."""
+    tools = StockTools()
+    return tools.get_current_price(symbol)
+
+
+def test_stock_tools():
+    """Test the stock tools functionality."""
     print("🔄 Testing Stock Tools...")
     
     tools = StockTools()
@@ -103,3 +110,7 @@ if __name__ == "__main__":
     print(f"Apple stock: {price_info}")
     
     print("\n✅ Stock Tools test completed!")
+
+
+if __name__ == "__main__":
+    test_stock_tools()

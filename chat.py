@@ -18,6 +18,15 @@ except ImportError as e:
     print(f"⚠️ Stock tools not available: {e}")
     StockTools = None
 
+# Import agentic workflow
+try:
+    from agents.workflows.unified_workflow import UnifiedAgenticWorkflow
+    from config import Config
+    AGENTS_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Agentic workflow not available: {e}")
+    AGENTS_AVAILABLE = False
+
 class RAGChatSystem:
     def __init__(self):
         """Initialize RAG Chat system with memory and stock integration"""
@@ -66,9 +75,24 @@ class RAGChatSystem:
         )
         
         print("✅ RAG Chat system with memory ready!")
-    
-    def chat(self, question: str) -> dict:
-        """Chat with memory-enabled RAG system"""
+
+    def chat(self, session_id: str, question: str, use_agents: bool = None) -> dict:
+        """Chat with memory-enabled RAG system, optionally using agentic workflow"""
+        
+        # Use agentic workflow if available and enabled
+        if use_agents:
+            try:
+                workflow = UnifiedAgenticWorkflow()
+                response = workflow.run(question, session_id=session_id)
+                return {
+                    "response": response,
+                    "sources": ["Agentic Workflow"],
+                    "chat_history": [],
+                    "mode": "agentic"
+                }
+            except Exception as e:
+                print(f"Agentic workflow failed, falling back to standard RAG: {e}")
+        
         try:
             # Get response from conversational chain
             result = self.qa_chain({"question": question})
@@ -83,36 +107,18 @@ class RAGChatSystem:
             return {
                 "response": result["answer"],
                 "sources": sources,
-                "chat_history": self.memory.chat_memory.messages
+                "chat_history": self.memory.chat_memory.messages,
+                "mode": "standard"
             }
             
         except Exception as e:
             return {
                 "response": f"Sorry, I encountered an error: {str(e)}",
                 "sources": [],
-                "chat_history": []
+                "chat_history": [],
+                "mode": "error"
             }
     
-    def get_stock_price(self, symbol: str) -> str:
-        """Direct method to get stock price"""
-        if not self.stock_tools:
-            return "Stock market integration is not available."
-        
-        try:
-            return self.stock_tools.get_current_price(symbol)
-        except Exception as e:
-            return f"Error getting stock price for {symbol}: {str(e)}"
-    
-    def search_stocks(self, keywords: str) -> str:
-        """Search for stock symbols by keywords"""
-        if not self.stock_tools:
-            return "Stock market integration is not available."
-        
-        try:
-            return self.stock_tools.search_companies(keywords)
-        except Exception as e:
-            return f"Error searching for stocks with '{keywords}': {str(e)}"
-
     def get_chat_history(self) -> list:
         """Get current chat history"""
         return self.memory.chat_memory.messages
@@ -140,76 +146,6 @@ class RAGChatSystem:
                 'error': str(e)
             }
 
-def interactive_chat():
-    """Interactive chat interface with memory"""
-    print("🤖 RAG Chatbot with Memory - Commands:")
-    print("  'quit' - Exit")
-    print("  'clear' - Clear chat memory")
-    print("  'history' - Show chat history")
-    print("  'status' - System information")
-    print("=" * 60)
-    
-    # Initialize RAG Chat system
-    try:
-        chat_system = RAGChatSystem()
-    except Exception as e:
-        print(f"❌ Failed to initialize RAG system: {e}")
-        print("💡 Make sure you've run 'python ingest_data.py' first!")
-        return
-    
-    print("\n🎯 You can now ask questions about your documents!")
-    print("💭 The system will remember our conversation context.\n")
-    
-    while True:
-        try:
-            user_input = input("\n👤 You: ").strip()
-            
-            if not user_input:
-                continue
-                
-            if user_input.lower() == 'quit':
-                print("👋 Goodbye!")
-                break
-                
-            elif user_input.lower() == 'clear':
-                chat_system.clear_memory()
-                continue
-                
-            elif user_input.lower() == 'history':
-                history = chat_system.get_chat_history()
-                print(f"\n📚 Chat History ({len(history)} messages):")
-                for i, msg in enumerate(history[-10:]):  # Show last 10 messages
-                    role = "👤" if msg.type == "human" else "🤖"
-                    print(f"  {role} {msg.content[:100]}...")
-                continue
-                
-            elif user_input.lower() == 'status':
-                status = chat_system.get_system_status()
-                print(f"\n📊 System Status:")
-                print(f"  Status: {status.get('status', 'unknown')}")
-                print(f"  Framework: {status.get('framework', 'unknown')}")
-                print(f"  Memory Messages: {status.get('memory_messages', 0)}")
-                continue
-            
-            # Process the question
-            print("🔄 Thinking...")
-            result = chat_system.chat(user_input)
-            
-            # Display response
-            print(f"\n🤖 Assistant: {result['response']}")
-            
-            # Show sources if available
-            if result['sources']:
-                print(f"\n📚 Sources: {', '.join(result['sources'])}")
-                
-        except KeyboardInterrupt:
-            print("\n\n👋 Goodbye!")
-            break
-            
-        except Exception as e:
-            print(f"\n❌ Error: {e}")
-            print("🔄 Continuing chat...")
-
 def single_query(question: str):
     """Single query interface for testing"""
     try:
@@ -236,6 +172,3 @@ if __name__ == "__main__":
         # Single query mode
         query = " ".join(sys.argv[1:])
         single_query(query)
-    else:
-        # Interactive chat mode
-        interactive_chat()
